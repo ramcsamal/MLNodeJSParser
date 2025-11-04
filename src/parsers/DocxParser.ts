@@ -1,4 +1,4 @@
-import mammoth from 'mammoth';
+import PizZip from 'pizzip';
 import { readFile } from 'fs/promises';
 import { IDocumentParser, ParsedDocument, TableData } from '../types/index.js';
 
@@ -10,9 +10,8 @@ export class DocxParser implements IDocumentParser {
     try {
       const buffer = await readFile(filePath);
 
-      // Extract text with Mammoth
-      const result = await mammoth.extractRawText({ buffer });
-      const text = result.value;
+      // Extract text from DOCX
+      const text = await this.extractText(buffer);
 
       // Count paragraphs (simple heuristic)
       const paragraphCount = text.split('\n\n').filter((p) => p.trim()).length;
@@ -37,53 +36,95 @@ export class DocxParser implements IDocumentParser {
   }
 
   /**
+   * Extract text from DOCX file using PizZip
+   */
+  private async extractText(buffer: Buffer): Promise<string> {
+    try {
+      const zip = new PizZip(buffer);
+      const xml = zip.file('word/document.xml')?.asText();
+
+      if (!xml) {
+        throw new Error('Could not find document.xml in DOCX file');
+      }
+
+      // Extract text from XML
+      let text = xml.replace(/<w:t[^>]*>([^<]*)<\/w:t>/g, '$1');
+      text = text.replace(/<w:p[^>]*>/g, '\n'); // Paragraphs
+      text = text.replace(/<[^>]+>/g, ''); // Remove remaining XML tags
+      text = text.replace(/\n+/g, '\n').trim();
+
+      return text;
+    } catch (error) {
+      throw new Error(
+        `Failed to extract text: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+    }
+  }
+
+  /**
    * Extract tables from DOCX file
    */
   private async extractTables(buffer: Buffer): Promise<TableData[]> {
     try {
-      // Use Mammoth to convert to HTML to extract table structure
-      const htmlResult = await mammoth.convertToHtml({ buffer });
-      const html = htmlResult.value;
+      const zip = new PizZip(buffer);
+      const xml = zip.file('word/document.xml')?.asText();
+
+      if (!xml) {
+        return [];
+      }
 
       const tables: TableData[] = [];
 
-      // Simple regex-based table extraction from HTML
-      const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/gi;
+      // Extract tables using regex
+      const tableRegex = /<w:tbl[^>]*>([\s\S]*?)<\/w:tbl>/gi;
       let tableMatch;
 
-      while ((tableMatch = tableRegex.exec(html)) !== null) {
-        const tableHtml = tableMatch[1];
+      while ((tableMatch = tableRegex.exec(xml)) !== null) {
+        const tableXml = tableMatch[1];
         const rows: string[][] = [];
-        let headers: string[] | undefined;
 
-        // Extract header row
-        const theadRegex = /<thead[^>]*>([\s\S]*?)<\/thead>/i;
-        const theadMatch = theadRegex.exec(tableHtml);
-
-        if (theadMatch) {
-          const headerRow = this.extractRowCells(theadMatch[1]);
-          if (headerRow.length > 0) {
-            headers = headerRow;
-          }
-        }
-
-        // Extract body rows
-        const tbodyRegex = /<tbody[^>]*>([\s\S]*?)<\/tbody>/i;
-        const tbodyMatch = tbodyRegex.exec(tableHtml);
-        const bodyHtml = tbodyMatch ? tbodyMatch[1] : tableHtml;
-
-        const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+        // Extract rows
+        const rowRegex = /<w:tr[^>]*>([\s\S]*?)<\/w:tr>/gi;
         let rowMatch;
 
-        while ((rowMatch = rowRegex.exec(bodyHtml)) !== null) {
-          const cells = this.extractRowCells(rowMatch[1]);
+        while ((rowMatch = rowRegex.exec(tableXml)) !== null) {
+          const rowXml = rowMatch[1];
+          const cells: string[] = [];
+
+          // Extract cells
+          const cellRegex = /<w:tc[^>]*>([\s\S]*?)<\/w:tc>/gi;
+          let cellMatch;
+
+          while ((cellMatch = cellRegex.exec(rowXml)) !== null) {
+            const cellXml = cellMatch[1];
+            const textRegex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+            let cellText = '';
+            let textMatch;
+
+            while ((textMatch = textRegex.exec(cellXml)) !== null) {
+              cellText += textMatch[1];
+            }
+
+            cells.push(cellText.trim());
+          }
+
           if (cells.length > 0) {
             rows.push(cells);
           }
         }
 
         if (rows.length > 0) {
-          tables.push({ headers, rows });
+          // Assume first row is header
+          const headers = rows[0];
+          const dataRows = rows.slice(1);
+
+          if (dataRows.length > 0) {
+            tables.push({ headers, rows: dataRows });
+          } else {
+            tables.push({ rows });
+          }
         }
       }
 
@@ -92,29 +133,6 @@ export class DocxParser implements IDocumentParser {
       console.warn('Failed to extract tables:', error);
       return [];
     }
-  }
-
-  /**
-   * Extract cells from a table row HTML
-   */
-  private extractRowCells(rowHtml: string): string[] {
-    const cells: string[] = [];
-    const cellRegex = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
-    let cellMatch;
-
-    while ((cellMatch = cellRegex.exec(rowHtml)) !== null) {
-      const cellContent = cellMatch[1]
-        .replace(/<[^>]+>/g, '') // Remove HTML tags
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .trim();
-      cells.push(cellContent);
-    }
-
-    return cells;
   }
 
   /**
