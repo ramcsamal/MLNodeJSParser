@@ -5,7 +5,7 @@ import { getDocumentType } from '../utils/helpers.js';
 import { DocumentType } from '../types/index.js';
 
 export class ParserFactory {
-  private static parsers: Map<DocumentType, IDocumentParser> = new Map([
+  private static parsers: Map<DocumentType, IDocumentParser> = new Map<DocumentType, IDocumentParser>([
     [DocumentType.DOCX, new DocxParser()],
     [DocumentType.PDF, new PdfParser()],
   ]);

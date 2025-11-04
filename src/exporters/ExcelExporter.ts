@@ -4,7 +4,6 @@ import {
   ExtractionResult,
   ExportOptions,
   ExportFormat,
-  ExtractedContent,
 } from '../types/index.js';
 import { StructuredDataExtractor } from '../utils/StructuredDataExtractor.js';
 

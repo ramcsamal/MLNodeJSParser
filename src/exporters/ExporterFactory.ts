@@ -4,7 +4,7 @@ import { CsvExporter } from './CsvExporter.js';
 import { ExcelExporter } from './ExcelExporter.js';
 
 export class ExporterFactory {
-  private static exporters: Map<ExportFormat, IExporter> = new Map([
+  private static exporters: Map<ExportFormat, IExporter> = new Map<ExportFormat, IExporter>([
     [ExportFormat.JSON, new JsonExporter()],
     [ExportFormat.CSV, new CsvExporter()],
     [ExportFormat.XLSX, new ExcelExporter()],

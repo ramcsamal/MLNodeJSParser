@@ -8,7 +8,6 @@ import {
   ExportOptions,
   ExtractorConfigType,
   ExtractorConfigSchema,
-  DocumentType,
 } from './types/index.js';
 import { getDocumentType } from './utils/helpers.js';
 

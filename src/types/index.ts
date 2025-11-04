@@ -103,7 +103,14 @@ export type ExtractedContent = z.infer<typeof ExtractedContentSchema>;
 export type DocumentMetadata = z.infer<typeof DocumentMetadataSchema>;
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
 export type ClassificationResult = z.infer<typeof ClassificationResultSchema>;
-export type ExportOptions = z.infer<typeof ExportOptionsSchema>;
+
+// Override the format type to use the enum instead of the Zod literal
+export interface ExportOptions {
+  format: ExportFormat;
+  outputPath: string;
+  includeMetadata: boolean;
+  prettyPrint: boolean;
+}
 
 // ==================== Parser Interfaces ====================
 
