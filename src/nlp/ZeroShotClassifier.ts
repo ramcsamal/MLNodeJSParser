@@ -1,5 +1,14 @@
-import { pipeline } from '@xenova/transformers';
+import { pipeline, env } from '@xenova/transformers';
 import { IClassifier, ClassificationResult } from '../types/index.js';
+
+// Configure transformers environment
+env.allowLocalModels = true;
+env.useBrowserCache = false;
+
+// Disable SSL verification for model downloads (for corporate networks)
+if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === undefined) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 
 export class ZeroShotClassifier implements IClassifier {
   private classifier: any = null;
@@ -20,7 +29,15 @@ export class ZeroShotClassifier implements IClassifier {
       console.log(`Loading model: ${this.modelName}...`);
       this.classifier = await pipeline(
         'zero-shot-classification',
-        this.modelName
+        this.modelName,
+        {
+          // Add retry logic
+          progress_callback: (progress: any) => {
+            if (progress.status === 'progress') {
+              console.log(`Downloading: ${progress.file} - ${Math.round(progress.progress)}%`);
+            }
+          }
+        }
       );
       this.isInitialized = true;
       console.log('Model loaded successfully');
