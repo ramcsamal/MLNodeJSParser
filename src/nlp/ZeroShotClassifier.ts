@@ -1,14 +1,24 @@
 import { pipeline, env } from '@xenova/transformers';
 import { IClassifier, ClassificationResult } from '../types/index.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-// Configure transformers environment
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure transformers environment to use local cache
+const modelsDir = path.join(__dirname, '..', '..', 'models');
+env.cacheDir = modelsDir;
 env.allowLocalModels = true;
 env.useBrowserCache = false;
+env.allowRemoteModels = true; // Allow fallback to remote if local not found
 
 // Disable SSL verification for model downloads (for corporate networks)
 if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === undefined) {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
+
+console.log(`Models cache directory: ${modelsDir}`);
 
 export class ZeroShotClassifier implements IClassifier {
   private classifier: any = null;
