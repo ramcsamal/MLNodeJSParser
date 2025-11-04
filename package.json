@@ -34,6 +34,9 @@
     "xlsx": "^0.18.5",
     "zod": "^3.22.4"
   },
+  "optionalDependencies": {
+    "sharp": "^0.32.6"
+  },
   "devDependencies": {
     "@types/node": "^20.11.19",
     "@types/pdf-parse": "^1.1.4",
